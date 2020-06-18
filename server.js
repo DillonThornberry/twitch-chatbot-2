@@ -1,16 +1,32 @@
 const express = require('express')
 const request = require('request')
+const cors = require('cors')
 const cookieParser = require('cookie-parser')
+const bodyParser = require('body-parser')
+const { MongoClient } = require('mongodb')
 require('dotenv').config()
+
+const client = new MongoClient(process.env.DB_URL)
+var db = null
+var users = null
+client.connect().then(() => {
+    console.log('connected to DB')
+    db = client.db('chatbot-db')
+    users = db.collection('users')
+})
 
 const app = express()
 
 app.use(cookieParser())
+app.use(bodyParser())
+app.use(cors({ origin: 'http://localhost:3002', credentials: true }))
 
-app.get('/useroptions', async (req, res) => {
+app.get('/useroptions', cookieParser(), async (req, res) => {
     // Get code from query string and token from cookies if present
     const code = req.query.code
     var accessToken = req.cookies['access-token'] || null
+    //console.log('from cookies: ' + accessToken)
+    var refreshToken = null
 
     // Set headers in response so CORS won't reject it
     addAccess(res)
@@ -18,9 +34,12 @@ app.get('/useroptions', async (req, res) => {
     // If user came to page via Twitch sign in and have a code, get auth tokens with the code 
     if (code) {
         const tokens = await getTokensFromCode(code)
-        accessToken = tokens.accessToken
-        if (accessToken) {
-            res.cookie('access-token', accessToken, { maxAge: 360 * 3 * 1000 })
+        newAccessToken = tokens.accessToken
+        refreshToken = tokens.refreshToken
+        if (newAccessToken) {
+            //console.log('new access token: ' + newAccessToken)
+            res.cookie('access-token', newAccessToken, { maxAge: 3600 * 3 * 1000, path: '/' })
+            accessToken = newAccessToken
         }
     }
     // If no code or code failed, and none was in cookies, return with error response
@@ -31,24 +50,39 @@ app.get('/useroptions', async (req, res) => {
     // Get the users info with the access token we received
     const userInfo = await getUserFromToken(accessToken)
 
-    // At this point see if user is in our database (via twitch ID)
-    // If so, get their options and send back
-    // If not, add them to database with twitch info, refresh token, and default options
-    // If no refresh token send login error
-    console.log('after all awaits: ')
-    console.log(userInfo)
-    res.send(JSON.stringify(userInfo))
+    // Reference users collection in DB and look for signed in user
+    var userRecord = await users.findOne({ twitchID: userInfo.id })
+
+    // If user not in our DB, add them with default settings
+    if (!userRecord) {
+        const newUser = new Person(userInfo, refreshToken)
+        await users.insertOne(newUser)
+
+        // After adding them to DB retrieve their info from it to ensure they made it in
+        userRecord = await users.findOne({ twitchID: userInfo.id })
+    }
+
+    // Send response with their Twitch details and bot options
+    res.send(JSON.stringify({ twitchDetails: userRecord.twitchDetails, options: userRecord.options }))
 })
 
-// Second path PUT /update will update user settings after confirming the access token in their cookies
-// It will make a request to twitch with the token and use Twitch ID to query them in DB and update 
-app.put('/update', async (req, res) => {
+// Update user settings after confirming the access token in their cookies
+// Makes request to twitch with the token and uses Twitch ID to query them in DB and update settings
+app.post('/update', bodyParser(), async (req, res) => {
     const accessToken = req.cookies['access-token']
+    addAccess(res)
     if (!accessToken) {
         return res.send({ error: 'not authorized' })
     }
     const userInfo = await getUserFromToken(accessToken)
+    const updatedOptions = req.body
+    users.updateOne({ twitchID: userInfo.id }, { '$set': { options: updatedOptions } }).then(result => {
+        var { matchedCount, modifiedCount } = result
+        res.send(JSON.stringify({ status: matchedCount && modifiedCount ? 'update successful' : 'no updates made' }))
+    })
 })
+
+// Functions below will probably be moved to utils/serverUtils.js 
 
 // Gets Twitch auth token via sign-in code
 const getTokensFromCode = async (code) => {
@@ -81,10 +115,24 @@ const getUserFromToken = async (accessToken) => {
 
 // Sets response headers so CORS won't block
 const addAccess = res => {
-    res.append('Access-Control-Allow-Origin', 'http://localhost:3002');
+    // res.append('Access-Control-Allow-Origin', 'http://localhost:3002');
     res.append('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
     res.append('Access-Control-Allow-Headers', 'Content-Type, credentials');
-    res.append('Access-Control-Allow-Credentials', 'true');
+    //res.append('Access-Control-Allow-Credentials', true);
+}
+
+const defaultOptions = {
+    history: true, trivia: true, slots: true, atRobotApe: true, awardPoints: false, recordChat: true,
+    secretWord: false, spamMessage: false,
+}
+
+class Person {
+    constructor(twitchDetails, refreshToken) {
+        this.twitchID = twitchDetails.id
+        this.twitchDetails = twitchDetails
+        this.refreshToken = refreshToken
+        this.options = defaultOptions
+    }
 }
 
 app.listen(3001, () => console.log('listening on 3001'))
