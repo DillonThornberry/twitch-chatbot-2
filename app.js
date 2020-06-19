@@ -1,62 +1,80 @@
 const tmi = require('tmi.js')
-const fs = require('fs')
-const commands = require('./commands.js')
-const utils = require('./utils.js')
+const { MongoClient } = require('mongodb')
 
 require('dotenv').config()
 
-const users = require('./users.json')
+const dbClient = new MongoClient(process.env.DB_URL)
+var tmiClient = null
 
-const opts = {
+var users = {}
+
+const onMessageHandler = (target, context, message, self) => {
+    if (self) { return }
+    target = target.slice(1)
+
+    if (/@robot_ape/gi.test(message) && users[target].options.atRobotApe) {
+        tmiClient.say(target, 'hello')
+    }
+
+    if (message[0] === '!') {
+        const split = message.split()
+        const command = split[0].slice(1)
+        const extra = split.slice(1)
+
+        if (users[target].options[command]) {
+            console.log('command')
+            tmiClient.say(target, 'command')
+        }
+    }
+}
+
+const loadUsers = async () => {
+    const userColl = dbClient.db('chatbot-db').collection('users')
+    var users = {}
+    await userColl.find({}).forEach(user => {
+        users[user.twitchDetails.login] = { options: user.options }
+    })
+    return users
+}
+
+var opts = {
     identity: {
         username: process.env.BOT_CHANNEL,
         password: process.env.PASS,
     },
-    channels: Object.keys(users)
-
+    channels: []
 }
 
-const client = new tmi.client(opts)
+const loadUsersAndConnect = async () => {
+    await dbClient.connect()
+    console.log('bot connect to DB')
+    users = await loadUsers()
+    opts.channels = Object.keys(users)
 
-// Load chat history from json and store in an array
-var chatHistory = fs.readFileSync('chat-history.json', 'utf-8')
-
-if (!chatHistory.length) {
-    process.exit(1)
+    tmiClient = new tmi.Client(opts)
+    tmiClient.on('message', onMessageHandler)
+    tmiClient.on('connected', () => console.log('chatbot connected'))
+    tmiClient.connect()
 }
 
-chatHistory = JSON.parse(chatHistory)
+loadUsersAndConnect()
 
-const onMessageHandler = (target, context, message, self) => {
-    if (self) { return }
-
-    // If message is a command, call that command
-    if (message[0] === '!') {
-        var parsedMessage = message.slice(1).split(' ')
-        var command = parsedMessage[0].toLowerCase()
-        //console.log(command)
-        if (commands[command]) {
-            commands[command](
-                response => client.say(target, response),
-                { target, context, extra: parsedMessage.slice(1).join(' ') },
-                chatHistory
-            )
+setInterval(() => {
+    loadUsers().then(userList => {
+        var oldUserList = { ...users }
+        for (var user in userList) {
+            if (!users[user]) {
+                tmiClient.join(user)
+            } else {
+                delete oldUserList[user]
+            }
+            users[user] = userList[user]
         }
-    }
+        for (var removedUser in oldUserList) {
+            tmiClient.part(removedUser)
+            delete users[removedUser]
+        }
+        console.log(users)
+    })
+}, 10000)
 
-    if (/@robot_ape/gi.test(message) && users[utils.removeAtSign(target).commands.atRobotAt]) {
-        client.say(target, `@${context.username} ${utils.getRandomHistory().message}`)
-    }
-
-    // Create a message object and push it into the chat history array, then store the array to json
-    var newMessage = { message: message, user: context.username, time: new Date() }
-    chatHistory.push(newMessage)
-    fs.writeFile('chat-history.json', JSON.stringify(chatHistory), () => console.log('message saved'))
-
-}
-
-client.on('message', onMessageHandler)
-
-client.on('connected', () => console.log('chatbot connected'))
-
-client.connect()
