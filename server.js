@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser')
 const bodyParser = require('body-parser')
 const { MongoClient } = require('mongodb')
 require('dotenv').config()
+require('./app.js')
 
 const client = new MongoClient(process.env.DB_URL)
 var db = null
@@ -56,7 +57,10 @@ app.get('/useroptions', cookieParser(), async (req, res) => {
     // If user not in our DB, add them with default settings
     if (!userRecord) {
         const newUser = new Person(userInfo, refreshToken)
+        const chatRecordId = await db.collection('chat').insertOne(new Chatlog(userInfo.login))
+        newUser.chatRecordId = chatRecordId.insertedId
         await users.insertOne(newUser)
+
 
         // After adding them to DB retrieve their info from it to ensure they made it in
         userRecord = await users.findOne({ twitchID: userInfo.id })
@@ -129,9 +133,17 @@ const defaultOptions = {
 class Person {
     constructor(twitchDetails, refreshToken) {
         this.twitchID = twitchDetails.id
+        this.chatRecordId = null
         this.twitchDetails = twitchDetails
         this.refreshToken = refreshToken
         this.options = defaultOptions
+    }
+}
+
+class Chatlog {
+    constructor(twitchName) {
+        this.twitchName = twitchName
+        this.chatlog = []
     }
 }
 
