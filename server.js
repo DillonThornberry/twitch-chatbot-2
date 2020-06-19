@@ -26,7 +26,6 @@ app.get('/useroptions', cookieParser(), async (req, res) => {
     // Get code from query string and token from cookies if present
     const code = req.query.code
     var accessToken = req.cookies['access-token'] || null
-    //console.log('from cookies: ' + accessToken)
     var refreshToken = null
 
     // Set headers in response so CORS won't reject it
@@ -38,7 +37,6 @@ app.get('/useroptions', cookieParser(), async (req, res) => {
         newAccessToken = tokens.accessToken
         refreshToken = tokens.refreshToken
         if (newAccessToken) {
-            //console.log('new access token: ' + newAccessToken)
             res.cookie('access-token', newAccessToken, { maxAge: 3600 * 3 * 1000, path: '/' })
             accessToken = newAccessToken
         }
@@ -64,6 +62,8 @@ app.get('/useroptions', cookieParser(), async (req, res) => {
 
         // After adding them to DB retrieve their info from it to ensure they made it in
         userRecord = await users.findOne({ twitchID: userInfo.id })
+    } else {
+        users.updateOne({ __id: userRecord.__id }, { $set: { refreshToken: refreshToken } })
     }
 
     // Send response with their Twitch details and bot options

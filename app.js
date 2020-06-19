@@ -80,7 +80,7 @@ const loadUsers = async () => {
     const userColl = db.collection('users')
     var users = {}
     await userColl.find({}).forEach(user => {
-        users[user.twitchDetails.login] = { options: user.options }
+        users[user.twitchDetails.login] = { options: user.options, refreshToken: user.refreshToken, twitchID: user.twitchID }
     })
     return users
 }
@@ -96,6 +96,7 @@ const loadUsersAndConnect = async () => {
     tmiClient.on('message', onMessageHandler)
     tmiClient.on('connected', () => console.log('chatbot connected'))
     tmiClient.connect()
+    require('./channelPoints.js')
 }
 
 loadUsersAndConnect()
