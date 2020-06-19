@@ -1,17 +1,16 @@
-const chatHistory = require('./chat-history.json')
 
-const getRandomHistory = user => {
-    var currentHistory = [...chatHistory]
-    if (user) {
-        var currentHistory = chatHistory.filter(message => message.user === user)
-    }
-
-    return currentHistory[Math.floor(Math.random() * currentHistory.length)]
+const awardPoints = (users, amount, callback) => {
+    var awardInterval = setInterval(() => {
+        if (!users.length) {
+            return clearInterval(awardInterval)
+        }
+        callback(`!add ${users.shift()} ${amount}`)
+    }, 5000)
 }
 
 const removeAtSign = username => username[0] === '@' || username[0] === '#' ? username.slice(1) : username
 
 module.exports = {
-    getRandomHistory,
+    awardPoints,
     removeAtSign,
 }

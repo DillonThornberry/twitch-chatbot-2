@@ -1,5 +1,6 @@
 const tmi = require('tmi.js')
 const { MongoClient } = require('mongodb')
+const commands = require('./commands.js')
 
 require('dotenv').config()
 
@@ -9,9 +10,15 @@ var db = null
 
 var users = {}
 
+var temporaryChatCollection = {}
+
 const onMessageHandler = (target, context, message, self) => {
     if (self) { return }
     target = target.slice(1)
+
+    if (temporaryChatCollection[target]) {
+        temporaryChatCollection[target].push({ username: context.username, message })
+    }
 
     if (/@robot_ape/gi.test(message) && users[target].options.atRobotApe) {
         loadChat(target).then(chatlog => {
@@ -21,13 +28,16 @@ const onMessageHandler = (target, context, message, self) => {
     }
 
     if (message[0] === '!') {
-        const split = message.split()
-        const command = split[0].slice(1)
-        const extra = split.slice(1)
+        const splitMessage = message.split(' ')
+        const command = splitMessage[0].slice(1)
+        const extra = splitMessage.slice(1)
 
-        if (users[target].options[command]) {
-            console.log('command')
-            tmiClient.say(target, 'command')
+        if (command === 'trivia' && temporaryChatCollection[target]) {
+            return tmiClient.say(target, `@${context.username} there is already a trivia active.`)
+        }
+
+        if (users[target].options[command] && commands[command]) {
+            commands[command](message => tmiClient.say(target, message), { extra, context, target })
         }
 
     } else {
@@ -47,6 +57,18 @@ var opts = {
         password: process.env.PASS,
     },
     channels: []
+}
+
+const collectUserChat = async (user, seconds) => {
+    temporaryChatCollection[user] = []
+    const tempChat = new Promise((resolve, reject) => {
+        setTimeout(() => {
+            const results = temporaryChatCollection[user]
+            delete temporaryChatCollection[user]
+            resolve(results)
+        }, seconds * 1000)
+    })
+    return await tempChat
 }
 
 const loadChat = async (user) => {
@@ -96,3 +118,4 @@ setInterval(() => {
     })
 }, 10000)
 
+module.exports = { collectUserChat, loadChat, loadUsers }
