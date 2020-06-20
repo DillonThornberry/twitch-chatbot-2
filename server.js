@@ -137,6 +137,7 @@ class Person {
         this.twitchDetails = twitchDetails
         this.refreshToken = refreshToken
         this.options = defaultOptions
+        this.secretWords = {}
     }
 }
 

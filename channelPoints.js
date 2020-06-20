@@ -32,8 +32,30 @@ ws.on('open', async () => {
 
 ws.on('message', (message) => {
     message = JSON.parse(message)
-    console.log(message)
+    if (message.type === 'MESSAGE' && message.data.topic.startsWith('channel-points')) {
+        const redemptionInfo = JSON.parse(message.data.message).data.redemption
+        const channel = Object.keys(channelPointsUsers).find(user =>
+            channelPointsUsers[user].twitchID === redemptionInfo.channel_id
+        )
+        const user = redemptionInfo.user.login
+        const input = redemptionInfo.user_input
+        const title = redemptionInfo.reward.title
+        if (title === 'Spam a message 10 times in chat') {
+            spamMessage(user, input)
+        } else if (title === 'Set a secret word') {
+            console.log('secret word redeemed')
+            const say = require('./app.js').say
+            say(channel, `@${user} whisper me your secret word`)
+            require('./app.js').awaitSecretWord(channel, user)
+        }
+    }
 })
+
+const spamMessage = (user, input) => {
+    for (var i = 0; i < 10; i++) {
+        require('./app.js').say(user, input)
+    }
+}
 
 const filterChannelPointsUsers = users => {
     const channelPointsUsers = {}
@@ -80,7 +102,6 @@ const setUserAccessToken = async (user) => {
 const getTwitchUrl = refreshToken => `https://id.twitch.tv/oauth2/token?client_id=${process.env.CLIENT_ID}&client_secret=${process.env.CLIENT_SECRET}&grant_type=refresh_token&refresh_token=${refreshToken}`
 
 setInterval(() => {
-    console.log('sending ping')
     ws.send(JSON.stringify({
         "type": "PING"
     }))

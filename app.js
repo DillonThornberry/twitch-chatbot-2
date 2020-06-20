@@ -16,6 +16,26 @@ const onMessageHandler = (target, context, message, self) => {
     if (self) { return }
     target = target.slice(1)
 
+    const secretWords = users[target].secretWords
+    for (var word in secretWords) {
+        const wordRegex = new RegExp(word, 'gi')
+        if (wordRegex.test(message) && context.username !== secretWords[word].user) {
+            tmiClient.say(target, `${context.username} found a secret word: ${word} . Set on ${secretWords[word].date}
+            by ${secretWords[word].user}`)
+            diffInMs = new Date() - secretWords[word].date
+            const award = 5 * Math.pow(10, Math.floor(diffInMs.toString().length / 2))
+            if (users[target].options.awardPoints) {
+                tmiClient.say(target, `!add ${context.username} ${award}`)
+            }
+            delete secretWords[word]
+            db.collection('users').updateOne(
+                { 'twitchDetails.login': target },
+                { $set: { secretWords: secretWords } }
+            ).then(result => console.log(result))
+
+        }
+    }
+
     if (temporaryChatCollection[target]) {
         temporaryChatCollection[target].push({ username: context.username, message })
     }
@@ -51,6 +71,26 @@ const onMessageHandler = (target, context, message, self) => {
     }
 }
 
+var secretWordRedeemers = {}
+
+const onWhisperHandler = (from, userstate, message, self) => {
+    if (self) { return }
+    from = from.slice(1)
+    if (secretWordRedeemers[from]) {
+        const secretWord = message.split(' ')[0]
+        const swRecipient = secretWordRedeemers[from]
+        const wordLocation = `secretWords.${secretWord}`
+        db.collection('users').updateOne(
+            { 'twitchDetails.login': swRecipient },
+            { $set: { [wordLocation]: { user: from, date: new Date() } } }
+        ).then(() => tmiClient.say(swRecipient, `${from} 's secret word has been set`))
+    }
+}
+
+const awaitSecretWord = (channel, user) => {
+    secretWordRedeemers[user] = channel
+}
+
 var opts = {
     identity: {
         username: process.env.BOT_CHANNEL,
@@ -80,7 +120,10 @@ const loadUsers = async () => {
     const userColl = db.collection('users')
     var users = {}
     await userColl.find({}).forEach(user => {
-        users[user.twitchDetails.login] = { options: user.options, refreshToken: user.refreshToken, twitchID: user.twitchID }
+        users[user.twitchDetails.login] = {
+            options: user.options, refreshToken: user.refreshToken,
+            twitchID: user.twitchID, secretWords: user.secretWords
+        }
     })
     return users
 }
@@ -94,10 +137,15 @@ const loadUsersAndConnect = async () => {
 
     tmiClient = new tmi.Client(opts)
     tmiClient.on('message', onMessageHandler)
+    tmiClient.on('whisper', onWhisperHandler)
     tmiClient.on('connected', () => console.log('chatbot connected'))
-    tmiClient.connect()
-    require('./channelPoints.js')
+    tmiClient.connect().then(() =>
+        require('./channelPoints.js')
+    )
+
 }
+
+const say = (target, message) => tmiClient.say(target, message)
 
 loadUsersAndConnect()
 
@@ -119,4 +167,4 @@ setInterval(() => {
     })
 }, 10000)
 
-module.exports = { collectUserChat, loadChat, loadUsers }
+module.exports = { awaitSecretWord, collectUserChat, loadChat, loadUsers, say, }
