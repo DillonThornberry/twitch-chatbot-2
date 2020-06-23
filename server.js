@@ -148,5 +148,5 @@ class Chatlog {
     }
 }
 
-app.listen(3001, () => console.log('listening on 3001'))
+app.listen(3001, () => console.log('Listening on 3001'))
 

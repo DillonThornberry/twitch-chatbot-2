@@ -1,12 +1,10 @@
 const tmi = require('tmi.js')
-const { MongoClient } = require('mongodb')
 const commands = require('./commands.js')
+const db = require('./database.js')
 
 require('dotenv').config()
 
-const dbClient = new MongoClient(process.env.DB_URL)
 var tmiClient = null
-var db = null
 
 var users = {}
 
@@ -28,11 +26,7 @@ const onMessageHandler = (target, context, message, self) => {
                 tmiClient.say(target, `!add ${context.username} ${award}`)
             }
             delete secretWords[word]
-            db.collection('users').updateOne(
-                { 'twitchDetails.login': target },
-                { $set: { secretWords: secretWords } }
-            ).then(result => console.log(result))
-
+            db.updateSecretWords(target, secretWords)
         }
     }
 
@@ -41,7 +35,7 @@ const onMessageHandler = (target, context, message, self) => {
     }
 
     if (/@robot_ape/gi.test(message) && users[target].options.atRobotApe) {
-        loadChat(target).then(chatlog => {
+        db.loadChat(target).then(chatlog => {
             const randomIndex = Math.floor(Math.random() * chatlog.length)
             tmiClient.say(target, `@${context.username} ${chatlog[randomIndex].message}`)
         })
@@ -63,10 +57,7 @@ const onMessageHandler = (target, context, message, self) => {
     } else {
         if (users[target].options.recordChat) {
             var chatRecord = { message, username: context.username, date: new Date() }
-            db.collection('chat').updateOne(
-                { twitchName: target },
-                { $push: { chatlog: chatRecord } }
-            )
+            db.addMessage(target, chatRecord)
         }
     }
 }
@@ -79,11 +70,9 @@ const onWhisperHandler = (from, userstate, message, self) => {
     if (secretWordRedeemers[from]) {
         const secretWord = message.split(' ')[0]
         const swRecipient = secretWordRedeemers[from]
-        const wordLocation = `secretWords.${secretWord}`
-        db.collection('users').updateOne(
-            { 'twitchDetails.login': swRecipient },
-            { $set: { [wordLocation]: { user: from, date: new Date() } } }
-        ).then(() => tmiClient.say(swRecipient, `${from} 's secret word has been set`))
+        db.addSecretWord(secretWord, swRecipient, from).then(() =>
+            tmiClient.say(swRecipient, `${from} 's secret word has been set`)
+        )
     }
 }
 
@@ -111,28 +100,8 @@ const collectUserChat = async (user, seconds) => {
     return await tempChat
 }
 
-const loadChat = async (user) => {
-    const chatHistory = await db.collection('chat').findOne({ twitchName: user })
-    return chatHistory.chatlog
-}
-
-const loadUsers = async () => {
-    const userColl = db.collection('users')
-    var users = {}
-    await userColl.find({}).forEach(user => {
-        users[user.twitchDetails.login] = {
-            options: user.options, refreshToken: user.refreshToken,
-            twitchID: user.twitchID, secretWords: user.secretWords
-        }
-    })
-    return users
-}
-
 const loadUsersAndConnect = async () => {
-    await dbClient.connect()
-    db = dbClient.db('chatbot-db')
-    console.log('bot connect to DB')
-    users = await loadUsers()
+    users = await db.loadUsers()
     opts.channels = Object.keys(users)
 
     tmiClient = new tmi.Client(opts)
@@ -142,7 +111,6 @@ const loadUsersAndConnect = async () => {
     tmiClient.connect().then(() =>
         require('./channelPoints.js')
     )
-
 }
 
 const say = (target, message) => tmiClient.say(target, message)
@@ -150,7 +118,7 @@ const say = (target, message) => tmiClient.say(target, message)
 loadUsersAndConnect()
 
 setInterval(() => {
-    loadUsers().then(userList => {
+    db.loadUsers().then(userList => {
         var oldUserList = { ...users }
         for (var user in userList) {
             if (!users[user]) {
@@ -167,4 +135,4 @@ setInterval(() => {
     })
 }, 10000)
 
-module.exports = { awaitSecretWord, collectUserChat, loadChat, loadUsers, say, }
+module.exports = { awaitSecretWord, collectUserChat, say, }

@@ -1,32 +1,29 @@
 const WebSocket = require('ws')
 const request = require('request')
-const { MongoClient } = require('mongodb')
-
-const dbClient = new MongoClient(process.env.DB_URL)
-var db = null
-var usersColl = null
+const db = require('./database.js')
 
 const ws = new WebSocket('wss://pubsub-edge.twitch.tv')
 
 var channelPointsUsers = null
 
 ws.on('open', async () => {
-    await dbClient.connect()
-    db = dbClient.db('chatbot-db')
-    usersColl = db.collection('users')
-    const users = await require('./app.js').loadUsers()
+    const users = await db.loadUsers()
     channelPointsUsers = filterChannelPointsUsers(users)
     for (var user in channelPointsUsers) {
-        await setUserAccessToken(user)
-        const { accessToken, twitchID } = channelPointsUsers[user]
-        const opts = {
-            type: 'LISTEN',
-            data: {
-                topics: [`channel-points-channel-v1.${twitchID}`],
-                'auth_token': accessToken
+        const refreshToken = channelPointsUsers[user].refreshToken
+        getTokens(refreshToken).then(tokens => {
+            db.setUserRefreshToken(user, tokens.newRefreshToken)
+            channelPointsUsers[user].accessToken = tokens.accessToken
+            const { accessToken, twitchID } = channelPointsUsers[user]
+            const opts = {
+                type: 'LISTEN',
+                data: {
+                    topics: [`channel-points-channel-v1.${twitchID}`],
+                    'auth_token': accessToken
+                }
             }
-        }
-        ws.send(JSON.stringify(opts))
+            ws.send(JSON.stringify(opts))
+        })
     }
 })
 
@@ -87,7 +84,7 @@ const getTokens = async (refreshToken) => {
 
 const setUserAccessToken = async (user) => {
     const finished = new Promise((resolve, reject) => {
-        const { refreshToken } = channelPointsUsers[user]
+
         getTokens(refreshToken).then(tokens => {
             channelPointsUsers[user].accessToken = tokens.accessToken
             usersColl.updateOne({ 'twitchDetails.login': user }, { $set: { refreshToken: tokens.newRefreshToken } })
