@@ -1,10 +1,11 @@
 const request = require('request')
 const utils = require('./utils.js')
+const db = require('./database.js')
 const Entities = require('html-entities').AllHtmlEntities
 const entities = new Entities()
 
 const history = (callback, info) => {
-    require('./app.js').loadChat(info.target).then(chatlog => {
+    db.loadChat(info.target).then(chatlog => {
         targetChatter = info.extra[0] ? utils.removeAtSign(info.extra[0]).toLowerCase() : info.context.username
         const targetChats = chatlog.filter(chat => chat.username === targetChatter)
         if (targetChats.length) {
@@ -24,7 +25,7 @@ const slots = (callback, info) => {
     }
     if (slotsResults.every(result => result === slotsResults[0])) {
         callback(`${info.context.username}, You got ${slotsResults[0]} / ${slotsResults[1]} / ${slotsResults[2]} and won!`)
-        require('./app.js').loadUsers().then(users => {
+        db.loadUsers().then(users => {
             if (users[info.target].options.awardPoints) {
                 utils.awardPoints([info.context.username], 5000, callback)
             }
@@ -55,7 +56,7 @@ const trivia = (callback, info) => {
             const winners = Object.keys(votes).filter(voter => votes[voter] === (correctIndex + 1).toString())
             callback(`/me The correct answer was ${choices[correctIndex]}. ${winners.length ?
                 winners.reduce((acc, cur) => acc + cur + ',', '') : 'Nobody'} was correct`)
-            require('./app.js').loadUsers().then(users => {
+            db.loadUsers().then(users => {
                 if (users[info.target].options.awardPoints) {
                     utils.awardPoints(winners, 5000, callback)
                 }

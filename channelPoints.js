@@ -5,6 +5,8 @@ const db = require('./database.js')
 const ws = new WebSocket('wss://pubsub-edge.twitch.tv')
 
 var channelPointsUsers = null
+var callbacks = null
+
 
 ws.on('open', async () => {
     const users = await db.loadUsers()
@@ -15,13 +17,7 @@ ws.on('open', async () => {
             db.setUserRefreshToken(user, tokens.newRefreshToken)
             channelPointsUsers[user].accessToken = tokens.accessToken
             const { accessToken, twitchID } = channelPointsUsers[user]
-            const opts = {
-                type: 'LISTEN',
-                data: {
-                    topics: [`channel-points-channel-v1.${twitchID}`],
-                    'auth_token': accessToken
-                }
-            }
+            const opts = getSubOpts(twitchID, accessToken)
             ws.send(JSON.stringify(opts))
         })
     }
@@ -30,27 +26,41 @@ ws.on('open', async () => {
 ws.on('message', (message) => {
     message = JSON.parse(message)
     if (message.type === 'MESSAGE' && message.data.topic.startsWith('channel-points')) {
-        const redemptionInfo = JSON.parse(message.data.message).data.redemption
+        const redemptionInfo = parseRedemptionInfo(JSON.parse(message.data.message).data.redemption)
         const channel = Object.keys(channelPointsUsers).find(user =>
-            channelPointsUsers[user].twitchID === redemptionInfo.channel_id
+            channelPointsUsers[user].twitchID === redemptionInfo.channelId
         )
-        const user = redemptionInfo.user.login
-        const input = redemptionInfo.user_input
-        const title = redemptionInfo.reward.title
-        if (title === 'Spam a message 10 times in chat') {
-            spamMessage(user, input)
-        } else if (title === 'Set a secret word') {
-            console.log('secret word redeemed')
-            const say = require('./app.js').say
-            say(channel, `@${user} whisper me your secret word`)
-            require('./app.js').awaitSecretWord(channel, user)
+        if (redemptionInfo.title === 'Spam a message 10 times in chat') {
+            spamMessage(redemptionInfo.user, redemptionInfo.input)
+        } else if (redemptionInfo.title === 'Set a secret word') {
+            callbacks.say(channel, `@${redemptionInfo.user} whisper me your secret word`)
+            callbacks.awaitSecretWord(channel, redemptionInfo.user)
         }
     }
 })
 
 const spamMessage = (user, input) => {
     for (var i = 0; i < 10; i++) {
-        require('./app.js').say(user, input)
+        callbacks.say(user, input)
+    }
+}
+
+const parseRedemptionInfo = redemptionInfo => {
+    return {
+        user: redemptionInfo.user.login,
+        input: redemptionInfo.user_input,
+        title: redemptionInfo.reward.title,
+        channelId: redemptionInfo.channel_id
+    }
+}
+
+const getSubOpts = (twitchID, accessToken) => {
+    return {
+        type: 'LISTEN',
+        data: {
+            topics: [`channel-points-channel-v1.${twitchID}`],
+            'auth_token': accessToken
+        }
     }
 }
 
@@ -82,20 +92,6 @@ const getTokens = async (refreshToken) => {
     return await tokens
 }
 
-const setUserAccessToken = async (user) => {
-    const finished = new Promise((resolve, reject) => {
-
-        getTokens(refreshToken).then(tokens => {
-            channelPointsUsers[user].accessToken = tokens.accessToken
-            usersColl.updateOne({ 'twitchDetails.login': user }, { $set: { refreshToken: tokens.newRefreshToken } })
-                .then(() => {
-                    resolve()
-                })
-        })
-    })
-    return await finished
-}
-
 const getTwitchUrl = refreshToken => `https://id.twitch.tv/oauth2/token?client_id=${process.env.CLIENT_ID}&client_secret=${process.env.CLIENT_SECRET}&grant_type=refresh_token&refresh_token=${refreshToken}`
 
 setInterval(() => {
@@ -103,3 +99,7 @@ setInterval(() => {
         "type": "PING"
     }))
 }, 120000)
+
+module.exports = {
+    setCallbacks: callbacksObj => callbacks = { ...callbacksObj }
+}
