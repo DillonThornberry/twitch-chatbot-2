@@ -2,42 +2,55 @@ const WebSocket = require('ws')
 const request = require('request')
 const db = require('./database.js')
 
-const ws = new WebSocket('wss://pubsub-edge.twitch.tv')
-
 var channelPointsUsers = null
 var callbacks = null
 
-
-ws.on('open', async () => {
-    const users = await db.loadUsers()
-    channelPointsUsers = filterChannelPointsUsers(users)
-    for (var user in channelPointsUsers) {
-        const refreshToken = channelPointsUsers[user].refreshToken
-        getTokens(refreshToken).then(tokens => {
-            db.setUserRefreshToken(user, tokens.newRefreshToken)
-            channelPointsUsers[user].accessToken = tokens.accessToken
-            const { accessToken, twitchID } = channelPointsUsers[user]
-            const opts = getSubOpts(twitchID, accessToken)
-            ws.send(JSON.stringify(opts))
-        })
-    }
-})
-
-ws.on('message', (message) => {
-    message = JSON.parse(message)
-    if (message.type === 'MESSAGE' && message.data.topic.startsWith('channel-points')) {
-        const redemptionInfo = parseRedemptionInfo(JSON.parse(message.data.message).data.redemption)
-        const channel = Object.keys(channelPointsUsers).find(user =>
-            channelPointsUsers[user].twitchID === redemptionInfo.channelId
-        )
-        if (redemptionInfo.title === 'Spam a message 10 times in chat') {
-            spamMessage(redemptionInfo.user, redemptionInfo.input)
-        } else if (redemptionInfo.title === 'Set a secret word') {
-            callbacks.say(channel, `@${redemptionInfo.user} whisper me your secret word`)
-            callbacks.awaitSecretWord(channel, redemptionInfo.user)
+const connect = () => {
+    var ws = new WebSocket('wss://pubsub-edge.twitch.tv')
+    ws.on('open', async () => {
+        const users = await db.loadUsers()
+        channelPointsUsers = filterChannelPointsUsers(users)
+        for (var user in channelPointsUsers) {
+            const refreshToken = channelPointsUsers[user].refreshToken
+            getTokens(refreshToken).then(tokens => {
+                db.setUserRefreshToken(user, tokens.newRefreshToken)
+                channelPointsUsers[user].accessToken = tokens.accessToken
+                const { accessToken, twitchID } = channelPointsUsers[user]
+                const opts = getSubOpts(twitchID, accessToken)
+                console.log(opts)
+                ws.send(JSON.stringify(opts))
+            })
         }
-    }
-})
+    })
+
+    ws.on('message', (message) => {
+        console.log(message)
+        if (message.type === 'RECONNECT') {
+            console.log('reconnecting')
+            return connect()
+        }
+        message = JSON.parse(message)
+        if (message.type === 'MESSAGE' && message.data.topic.startsWith('channel-points')) {
+            const redemptionInfo = parseRedemptionInfo(JSON.parse(message.data.message).data.redemption)
+            const channel = Object.keys(channelPointsUsers).find(user =>
+                channelPointsUsers[user].twitchID === redemptionInfo.channelId
+            )
+            if (redemptionInfo.title === 'Spam a message 10 times in chat') {
+                spamMessage(redemptionInfo.user, redemptionInfo.input)
+            } else if (redemptionInfo.title === 'Set a secret word') {
+                callbacks.say(channel, `@${redemptionInfo.user} whisper me your secret word`)
+                callbacks.awaitSecretWord(channel, redemptionInfo.user)
+            }
+        }
+    })
+
+    setInterval(() => {
+        ws.send(JSON.stringify({
+            "type": "PING"
+        }))
+    }, 120000)
+
+}
 
 const spamMessage = (user, input) => {
     for (var i = 0; i < 10; i++) {
@@ -94,11 +107,7 @@ const getTokens = async (refreshToken) => {
 
 const getTwitchUrl = refreshToken => `https://id.twitch.tv/oauth2/token?client_id=${process.env.CLIENT_ID}&client_secret=${process.env.CLIENT_SECRET}&grant_type=refresh_token&refresh_token=${refreshToken}`
 
-setInterval(() => {
-    ws.send(JSON.stringify({
-        "type": "PING"
-    }))
-}, 120000)
+connect()
 
 module.exports = {
     setCallbacks: callbacksObj => callbacks = { ...callbacksObj }

@@ -4,6 +4,10 @@ const db = require('./database.js')
 const Entities = require('html-entities').AllHtmlEntities
 const entities = new Entities()
 
+var callbacks = null
+
+const setCallbacks = callbacksObj => callbacks = { ...callbacksObj }
+
 const history = (callback, info) => {
     db.loadChat(info.target).then(chatlog => {
         targetChatter = info.extra[0] ? utils.removeAtSign(info.extra[0]).toLowerCase() : info.context.username
@@ -46,7 +50,7 @@ const trivia = (callback, info) => {
         callback('/me ' + entities.decode(res.body.results[0].question) + choices.reduce((acc, cur, i) => acc + `${i + 1}. ${cur} || `, ' ') +
             'You have 30 seconds to answer')
         setTimeout(() => callback('/me 10 seconds left to answer'), 20000)
-        require('./app.js').collectUserChat(info.target, 30).then(results => {
+        callbacks.collectUserChat(info.target, 30).then(results => {
             const votes = {}
             for (var result of results) {
                 if (result.message.length === 1 && /[1-9]/gi.test(result.message) && !votes[result.username]) {
@@ -67,6 +71,7 @@ const trivia = (callback, info) => {
 
 module.exports = {
     history,
+    setCallbacks,
     slots,
     trivia,
 }

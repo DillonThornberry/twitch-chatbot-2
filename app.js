@@ -108,13 +108,16 @@ const loadUsersAndConnect = async () => {
     tmiClient.on('message', onMessageHandler)
     tmiClient.on('whisper', onWhisperHandler)
     tmiClient.on('connected', () => console.log('chatbot connected'))
-    tmiClient.connect().then(() =>
+    tmiClient.connect().then(() => {
         require('./channelPoints.js').setCallbacks({
             awaitSecretWord: awaitSecretWord,
             collectUserChat: collectUserChat,
-            say: (message) => tmiClient.say(message),
+            say: (target, message) => tmiClient.say(target, message),
         })
-    )
+        commands.setCallbacks({
+            collectUserChat: collectUserChat,
+        })
+    })
 }
 
 const say = (target, message) => tmiClient.say(target, message)
