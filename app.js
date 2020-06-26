@@ -11,9 +11,11 @@ var users = {}
 var temporaryChatCollection = {}
 
 const onMessageHandler = (target, context, message, self) => {
-    if (self) { return }
+    if (self || context.username === 'robot_ape') { return }
+    if (!target || !users[target]) {
+        return console.log(`target ${target} not found in users object`)
+    }
     target = target.slice(1)
-
     const secretWords = users[target].secretWords
     for (var word in secretWords) {
         const wordRegex = new RegExp(word, 'gi')
@@ -142,4 +144,4 @@ setInterval(() => {
     })
 }, 10000)
 
-module.exports = { awaitSecretWord, collectUserChat, say, }
+// module.exports = { awaitSecretWord, collectUserChat, say, }

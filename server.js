@@ -33,7 +33,9 @@ app.get('/useroptions', cookieParser(), async (req, res) => {
 
     // If user came to page via Twitch sign in and have a code, get auth tokens with the code 
     if (code) {
-        const tokens = await getTokensFromCode(code)
+        const tokens = await getTokensFromCode(code).catch(e => {
+            return res.send(JSON.stringify({ error: e }))
+        })
         newAccessToken = tokens.accessToken
         refreshToken = tokens.refreshToken
         if (newAccessToken) {
@@ -82,7 +84,7 @@ app.post('/update', bodyParser(), async (req, res) => {
     const updatedOptions = req.body
     users.updateOne({ twitchID: userInfo.id }, { '$set': { options: updatedOptions } }).then(result => {
         var { matchedCount, modifiedCount } = result
-        res.send(JSON.stringify({ status: matchedCount && modifiedCount ? 'update successful' : 'no updates made' }))
+        res.send(JSON.stringify({ updated: matchedCount && modifiedCount ? true : false })).catch(e => console.log(e))
     })
 })
 
@@ -95,6 +97,12 @@ const getTokensFromCode = async (code) => {
         request.post({ url: codeUrl, json: true }, (error, response) => {
             const accessToken = response.body.access_token
             const refreshToken = response.body.refresh_token
+            if (error || !response.body) {
+                return reject('no response from code -> token request')
+            }
+            if (!response.body.refresh_token) {
+                return reject('code failed to obtain access/refesh tokens')
+            }
             resolve({ accessToken, refreshToken })
         })
     })

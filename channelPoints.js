@@ -12,14 +12,19 @@ const connect = () => {
         channelPointsUsers = filterChannelPointsUsers(users)
         for (var user in channelPointsUsers) {
             const refreshToken = channelPointsUsers[user].refreshToken
-            getTokens(refreshToken).then(tokens => {
-                db.setUserRefreshToken(user, tokens.newRefreshToken)
-                channelPointsUsers[user].accessToken = tokens.accessToken
-                const { accessToken, twitchID } = channelPointsUsers[user]
+            if (!refreshToken) {
+                console.log('no refresh token for ' + user)
+                continue
+            }
+            getTokens(refreshToken, user).then(tokens => {
+                db.setUserRefreshToken(tokens.user, tokens.newRefreshToken)
+                channelPointsUsers[tokens.user].accessToken = tokens.accessToken
+                const { accessToken, twitchID } = channelPointsUsers[tokens.user]
                 const opts = getSubOpts(twitchID, accessToken)
+                console.log(tokens.user + ' -------------')
                 console.log(opts)
                 ws.send(JSON.stringify(opts))
-            })
+            }).catch(e => console.log(e))
         }
     })
 
@@ -36,19 +41,48 @@ const connect = () => {
                 channelPointsUsers[user].twitchID === redemptionInfo.channelId
             )
             if (redemptionInfo.title === 'Spam a message 10 times in chat') {
-                spamMessage(redemptionInfo.user, redemptionInfo.input)
+                if (channelPointsUsers[channel].options.spamMessage) {
+                    spamMessage(redemptionInfo.user, redemptionInfo.input)
+                }
             } else if (redemptionInfo.title === 'Set a secret word') {
-                callbacks.say(channel, `@${redemptionInfo.user} whisper me your secret word`)
-                callbacks.awaitSecretWord(channel, redemptionInfo.user)
+                if (channelPointsUsers[channel].options.secretWord) {
+                    callbacks.say(channel, `@${redemptionInfo.user} whisper me your secret word`)
+                    callbacks.awaitSecretWord(channel, redemptionInfo.user)
+                }
             }
         }
     })
 
-    setInterval(() => {
+    const pingInterval = setInterval(() => {
+        if (ws.readyState != 1) {
+            console.log('socket closed')
+            return clearInterval(pingInterval)
+        }
         ws.send(JSON.stringify({
             "type": "PING"
         }))
     }, 120000)
+
+    const updateInterval = setInterval(async () => {
+        if (ws.readyState != 1) {
+            return clearInterval(updateInterval)
+        }
+        const newUsers = await db.loadUsers()
+        const newChannelPointsUsers = filterChannelPointsUsers(newUsers)
+        // console.log('update interval ///////////////////////////')
+        // console.log(channelPointsUsers)
+        // console.log('/////////////////')
+        for (var user in newChannelPointsUsers) {
+            if (!channelPointsUsers[user]) {
+                // Tell socket to sub to this user's channel points
+            }
+            //delete channelPointsUsers[user]
+        }
+        for (var user in channelPointsUsers) {
+            // Tell socket to unsub to this user's channel points (they weren't in new users so they must've disabled)
+        }
+
+    }, 10000)
 
 }
 
@@ -94,12 +128,21 @@ const filterChannelPointsUsers = users => {
     return channelPointsUsers
 }
 
-const getTokens = async (refreshToken) => {
+const getTokens = async (refreshToken, user) => {
     const tokens = new Promise((resolve, reject) => {
         request.post({ url: getTwitchUrl(refreshToken), json: true }, (err, response) => {
+            console.log(user + '------------')
+            console.log(response.body)
+            console.log('-------------')
             const accessToken = response.body.access_token
             const newRefreshToken = response.body.refresh_token
-            resolve({ accessToken, newRefreshToken })
+            if (err || !response.body) {
+                return reject('Request failed for refresh => access token')
+            }
+            if (!accessToken) {
+                return reject('Refresh token was no good')
+            }
+            resolve({ accessToken, newRefreshToken, user })
         })
     })
     return await tokens
