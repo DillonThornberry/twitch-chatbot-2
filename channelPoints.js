@@ -11,20 +11,7 @@ const connect = () => {
         const users = await db.loadUsers()
         channelPointsUsers = filterChannelPointsUsers(users)
         for (var user in channelPointsUsers) {
-            const refreshToken = channelPointsUsers[user].refreshToken
-            if (!refreshToken) {
-                console.log('no refresh token for ' + user)
-                continue
-            }
-            getTokens(refreshToken, user).then(tokens => {
-                db.setUserRefreshToken(tokens.user, tokens.newRefreshToken)
-                channelPointsUsers[tokens.user].accessToken = tokens.accessToken
-                const { accessToken, twitchID } = channelPointsUsers[tokens.user]
-                const opts = getSubOpts(twitchID, accessToken)
-                console.log(tokens.user + ' -------------')
-                console.log(opts)
-                ws.send(JSON.stringify(opts))
-            }).catch(e => console.log(e))
+            getSetStoreSub(user, channelPointsUsers)
         }
     })
 
@@ -69,20 +56,51 @@ const connect = () => {
         }
         const newUsers = await db.loadUsers()
         const newChannelPointsUsers = filterChannelPointsUsers(newUsers)
-        // console.log('update interval ///////////////////////////')
-        // console.log(channelPointsUsers)
-        // console.log('/////////////////')
         for (var user in newChannelPointsUsers) {
             if (!channelPointsUsers[user]) {
-                // Tell socket to sub to this user's channel points
+                console.log('new channel points user')
+                getSetStoreSub(user, newChannelPointsUsers).then(result => {
+                    newChannelPointsUsers[result.username].accessToken = result.accessToken
+                    channelPointsUsers[result.username] = newChannelPointsUsers[result.username]
+                })
+            } else {
+                channelPointsUsers[user] = newChannelPointsUsers[user]
             }
-            //delete channelPointsUsers[user]
         }
-        for (var user in channelPointsUsers) {
-            // Tell socket to unsub to this user's channel points (they weren't in new users so they must've disabled)
-        }
-
     }, 10000)
+
+    const getSetStoreSub = async (username, usersObj) => {
+        const updatedUser = new Promise(async (resolve, reject) => {
+            const refreshToken = usersObj[username].refreshToken
+            if (!refreshToken) {
+                return reject('no refresh token for ' + username)
+            }
+            const tokens = await getTokens(refreshToken, username).catch(e => {
+                return reject(e)
+            })
+            if (!tokens.accessToken) {
+                return reject('refresh token failed')
+            } else {
+                db.setUserRefreshToken(tokens.user, tokens.newRefreshToken)
+            }
+            usersObj[tokens.user].accessToken = tokens.accessToken
+            const { accessToken, twitchID } = usersObj[tokens.user]
+            subToChannelPoints(twitchID, accessToken)
+            resolve({ username, accessToken: tokens.accessToken })
+        })
+        return await updatedUser
+    }
+
+    const subToChannelPoints = (twitchID, accessToken) => {
+        const opts = {
+            type: 'LISTEN',
+            data: {
+                topics: [`channel-points-channel-v1.${twitchID}`],
+                'auth_token': accessToken
+            }
+        }
+        ws.send(JSON.stringify(opts))
+    }
 
 }
 
@@ -98,16 +116,6 @@ const parseRedemptionInfo = redemptionInfo => {
         input: redemptionInfo.user_input,
         title: redemptionInfo.reward.title,
         channelId: redemptionInfo.channel_id
-    }
-}
-
-const getSubOpts = (twitchID, accessToken) => {
-    return {
-        type: 'LISTEN',
-        data: {
-            topics: [`channel-points-channel-v1.${twitchID}`],
-            'auth_token': accessToken
-        }
     }
 }
 
