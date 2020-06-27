@@ -78,7 +78,7 @@ const connect = () => {
             const tokens = await getTokens(refreshToken, username).catch(e => {
                 return reject(e)
             })
-            if (!tokens.accessToken) {
+            if (!tokens.newRefreshToken) {
                 return reject('refresh token failed')
             } else {
                 db.setUserRefreshToken(tokens.user, tokens.newRefreshToken)

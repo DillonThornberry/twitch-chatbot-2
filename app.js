@@ -12,7 +12,7 @@ var temporaryChatCollection = {}
 
 const onMessageHandler = (target, context, message, self) => {
     if (self || context.username === 'robot_ape') { return }
-    if (!target || !users[target]) {
+    if (!target || !users[target.slice(1)]) {
         return console.log(`target ${target} not found in users object`)
     }
     target = target.slice(1)
@@ -122,8 +122,6 @@ const loadUsersAndConnect = async () => {
     })
 }
 
-const say = (target, message) => tmiClient.say(target, message)
-
 loadUsersAndConnect()
 
 setInterval(() => {
@@ -144,4 +142,3 @@ setInterval(() => {
     })
 }, 10000)
 
-// module.exports = { awaitSecretWord, collectUserChat, say, }

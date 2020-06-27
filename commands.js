@@ -59,7 +59,7 @@ const trivia = (callback, info) => {
             }
             const winners = Object.keys(votes).filter(voter => votes[voter] === (correctIndex + 1).toString())
             callback(`/me The correct answer was ${choices[correctIndex]}. ${winners.length ?
-                winners.reduce((acc, cur) => acc + cur + ',', '') : 'Nobody'} was correct`)
+                winners.join(', ') : 'Nobody'} was correct`)
             db.loadUsers().then(users => {
                 if (users[info.target].options.awardPoints) {
                     utils.awardPoints(winners, 5000, callback)
