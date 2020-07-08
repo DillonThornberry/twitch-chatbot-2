@@ -11,7 +11,10 @@ const connect = () => {
         const users = await db.loadUsers()
         channelPointsUsers = filterChannelPointsUsers(users)
         for (var user in channelPointsUsers) {
-            getSetStoreSub(user, channelPointsUsers)
+            getSetStoreSub(user, channelPointsUsers).then(result => {
+                console.log('result of getSetStoreSub')
+                console.log(result)
+            })
         }
     })
 
@@ -29,7 +32,7 @@ const connect = () => {
             )
             if (redemptionInfo.title === 'Spam a message 10 times in chat') {
                 if (channelPointsUsers[channel].options.spamMessage) {
-                    spamMessage(redemptionInfo.user, redemptionInfo.input)
+                    spamMessage(channel, redemptionInfo.input)
                 }
             } else if (redemptionInfo.title === 'Set a secret word') {
                 if (channelPointsUsers[channel].options.secretWord) {
@@ -81,9 +84,14 @@ const connect = () => {
             if (!tokens.newRefreshToken) {
                 return reject('refresh token failed')
             } else {
+                console.log('options passed to db.setUserRefreshToken: ')
+                console.log('user: ' + tokens.user)
+                console.log('rf token: ' + tokens.newRefreshToken)
                 db.setUserRefreshToken(tokens.user, tokens.newRefreshToken)
             }
             usersObj[tokens.user].accessToken = tokens.accessToken
+            console.log('usersObj (from getSetStoreSub)')
+            console.log(usersObj)
             const { accessToken, twitchID } = usersObj[tokens.user]
             subToChannelPoints(twitchID, accessToken)
             resolve({ username, accessToken: tokens.accessToken })
@@ -99,6 +107,8 @@ const connect = () => {
                 'auth_token': accessToken
             }
         }
+        console.log('Options being sent to pub sub:')
+        console.log(opts)
         ws.send(JSON.stringify(opts))
     }
 
@@ -137,6 +147,8 @@ const filterChannelPointsUsers = users => {
 }
 
 const getTokens = async (refreshToken, user) => {
+    console.log('from getTokens')
+    console.log(user)
     const tokens = new Promise((resolve, reject) => {
         request.post({ url: getTwitchUrl(refreshToken), json: true }, (err, response) => {
             console.log(user + '------------')

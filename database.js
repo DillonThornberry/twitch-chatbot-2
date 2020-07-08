@@ -51,6 +51,9 @@ const loadUsers = async () => {
 }
 
 const setUserRefreshToken = async (user, refreshToken) => {
+    if (!refreshToken) {
+        return console.log(`no refresh token for ${user} in database.js:55`)
+    }
     const finished = new Promise((resolve, reject) => {
         userColl.updateOne({ 'twitchDetails.login': user }, { $set: { refreshToken: refreshToken } })
             .then(() => {

@@ -37,6 +37,8 @@ app.get('/useroptions', cookieParser(), async (req, res) => {
         const tokens = await utils.getTokensFromCode(code).catch(e => {
             return res.send(JSON.stringify({ error: e }))
         })
+        console.log('First request for tokens on server.js:40')
+        console.log(tokens)
         newAccessToken = tokens.accessToken
         refreshToken = tokens.refreshToken
         if (newAccessToken) {
@@ -52,8 +54,13 @@ app.get('/useroptions', cookieParser(), async (req, res) => {
     // Get the users info with the access token we received
     const userInfo = await utils.getUserFromToken(accessToken)
 
+    console.log('user info with access token (from server.js:57)')
+    console.log(userInfo)
+
     // Reference users collection in DB and look for signed in user
     var userRecord = await users.findOne({ twitchID: userInfo.id })
+    console.log('user record taken from db after confirming user identity server.js:62')
+    console.log(userRecord)
 
     // If user not in our DB, add them with default settings
     if (!userRecord) {
@@ -66,7 +73,9 @@ app.get('/useroptions', cookieParser(), async (req, res) => {
         userRecord = await users.findOne({ twitchID: userInfo.id })
     } else {
         if (refreshToken) {
-            users.updateOne({ __id: userRecord.__id }, { $set: { refreshToken: refreshToken } })
+            console.log(refreshToken)
+            console.log(userRecord._id)
+            users.updateOne({ twitchID: userRecord.twitchID }, { $set: { refreshToken: refreshToken } })
         }
     }
 
