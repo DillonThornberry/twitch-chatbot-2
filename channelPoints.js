@@ -36,7 +36,7 @@ const connect = () => {
                 }
             } else if (redemptionInfo.title === 'Set a secret word') {
                 if (channelPointsUsers[channel].options.secretWord) {
-                    callbacks.say(channel, `@${redemptionInfo.user} whisper me your secret word`)
+                    callbacks.say(channel, `@${redemptionInfo.user} whisper me (Robot_Ape) your secret word. (Just the word itself with no quotations)`)
                     callbacks.awaitSecretWord(channel, redemptionInfo.user)
                 }
             }

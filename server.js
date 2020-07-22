@@ -65,7 +65,7 @@ app.get('/useroptions', cookieParser(), async (req, res) => {
     // If user not in our DB, add them with default settings
     if (!userRecord) {
         const newUser = new utils.Person(userInfo, refreshToken)
-        const chatRecordId = await db.collection('chat').insertOne(new Chatlog(userInfo.login))
+        const chatRecordId = await db.collection('chat').insertOne(new utils.Chatlog(userInfo.login))
         newUser.chatRecordId = chatRecordId.insertedId
         await users.insertOne(newUser)
 
