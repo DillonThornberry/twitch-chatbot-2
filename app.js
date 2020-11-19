@@ -15,18 +15,29 @@ const onMessageHandler = (target, context, message, self) => {
     if (!target || !users[target.slice(1)]) {
         return console.log(`target ${target} not found in users object`)
     }
+
+    // Check if a secret word was said
     target = target.slice(1)
     const secretWords = users[target].secretWords
     for (var word in secretWords) {
         const wordRegex = new RegExp(word, 'gi')
         if (wordRegex.test(message) && context.username !== secretWords[word].user) {
+
+            // Alert that a secret word was found
             tmiClient.say(target, `${context.username} found a secret word: ${word} . Set on ${secretWords[word].date}
             by ${secretWords[word].user}`)
-            diffInMs = new Date() - secretWords[word].date
+
+            // Determine the award
+            var diffInMs = new Date() - secretWords[word].date
             const award = 5 * Math.pow(10, Math.floor(diffInMs.toString().length / 2))
+
+            // If they have award points enabled, say the prize and update leaderboard
             if (users[target].options.awardPoints) {
-                tmiClient.say(target, `!add ${context.username} ${award}`)
+                tmiClient.say(target, `They both received ${award} points`)
+
             }
+            
+            // Clear separate word from memory and update database
             delete secretWords[word]
             db.updateSecretWords(target, secretWords)
         }
@@ -70,7 +81,8 @@ const onWhisperHandler = (from, userstate, message, self) => {
     if (self) { return }
     from = from.slice(1)
     if (secretWordRedeemers[from]) {
-        const secretWord = message.split(' ')[0]
+        var secretWord = message.split(' ')[0]
+        secretWord = [...secretWord].filter(letter => /[a-z]/gi.test(letter)).join('')
         const swRecipient = secretWordRedeemers[from]
         db.addSecretWord(secretWord, swRecipient, from).then(() =>
             tmiClient.say(swRecipient, `${from} 's secret word has been set`)
