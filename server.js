@@ -23,6 +23,10 @@ app.use(cookieParser())
 app.use(bodyParser())
 app.use(cors({ origin: 'http://localhost:3002', credentials: true }))
 
+app.get('/', (req, res) => {
+    res.send("<html><body><h1>bot is running</h1></body></html>")
+})
+
 app.get('/useroptions', cookieParser(), async (req, res) => {
     // Get code from query string and token from cookies if present
     const code = req.query.code
@@ -99,5 +103,5 @@ app.post('/update', bodyParser(), async (req, res) => {
     })
 })
 
-app.listen(3001, () => console.log('Listening on 3001'))
+app.listen(process.env.PORT || 3001, () => console.log('Listening on ' + (process.env.PORT ||  '3001')))
 
