@@ -25,13 +25,14 @@ app.use(bodyParser())
 app.use(cors({ origin: 'http://localhost:3002', credentials: true }))
 
 app.use(express.static(path.join(__dirname, 'homepage-build')))
+app.use(express.static(path.join(__dirname, 'options-build')))
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'homepage-build', 'index.html'));
 })
 
 app.get('/options', (req, res) => {
-    res.send('<html><body><h1>options page</h1></body></html>')
+    res.sendFile(path.join(__dirname, 'options-build', 'index.html'));
 })
 
 app.get('/wake', (req, res) => {

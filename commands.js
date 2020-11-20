@@ -20,24 +20,24 @@ const history = (callback, info) => {
     })
 }
 
-const slotsEmotes = ['hypnot21ZONE', 'hypnot21LUV', 'hypnot21TakeTheL', 'ftsnnaCRACKED', 'hypnot21GG', 'hypnot21HYPE']
+// const slotsEmotes = ['hypnot21ZONE', 'hypnot21LUV', 'hypnot21TakeTheL', 'ftsnnaCRACKED', 'hypnot21GG', 'hypnot21HYPE']
 
-const slots = (callback, info) => {
-    var slotsResults = []
-    for (var i = 0; i < 3; i++) {
-        slotsResults.push(slotsEmotes[Math.floor(Math.random() * slotsEmotes.length)])
-    }
-    if (slotsResults.every(result => result === slotsResults[0])) {
-        callback(`${info.context.username}, You got ${slotsResults[0]} / ${slotsResults[1]} / ${slotsResults[2]} and won!`)
-        db.loadUsers().then(users => {
-            if (users[info.target].options.awardPoints) {
-                utils.awardPoints([info.context.username], 5000, callback)
-            }
-        })
-    } else {
-        callback(`${info.context.username}, You got ${slotsResults[0]} / ${slotsResults[1]} / ${slotsResults[2]} loser!`)
-    }
-}
+// const slots = (callback, info) => {
+//     var slotsResults = []
+//     for (var i = 0; i < 3; i++) {
+//         slotsResults.push(slotsEmotes[Math.floor(Math.random() * slotsEmotes.length)])
+//     }
+//     if (slotsResults.every(result => result === slotsResults[0])) {
+//         callback(`${info.context.username}, You got ${slotsResults[0]} / ${slotsResults[1]} / ${slotsResults[2]} and won!`)
+//         db.loadUsers().then(users => {
+//             if (users[info.target].options.awardPoints) {
+//                 utils.awardPoints([info.context.username], 5000, callback)
+//             }
+//         })
+//     } else {
+//         callback(`${info.context.username}, You got ${slotsResults[0]} / ${slotsResults[1]} / ${slotsResults[2]} loser!`)
+//     }
+// }
 
 const trivia = (callback, info) => {
     request({ url: 'https://opentdb.com/api.php?amount=1&difficulty=easy&type=multiple', json: true }, (err, res) => {
