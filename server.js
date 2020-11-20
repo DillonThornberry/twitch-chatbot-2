@@ -24,8 +24,7 @@ app.use(bodyParser())
 app.use(cors({ origin: 'http://localhost:3002', credentials: true }))
 
 app.get('/', (req, res) => {
-    // res.send("<html><body><h1>bot is running</h1></body></html>")
-    
+    res.send("<html><body><h1>bot is running</h1></body></html>")
 })
 
 app.get('/useroptions', cookieParser(), async (req, res) => {
