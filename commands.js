@@ -72,6 +72,5 @@ const trivia = (callback, info) => {
 module.exports = {
     history,
     setCallbacks,
-    slots,
     trivia,
 }
