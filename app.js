@@ -84,9 +84,10 @@ const onWhisperHandler = (from, userstate, message, self) => {
         var secretWord = message.split(' ')[0]
         secretWord = [...secretWord].filter(letter => /[a-z]/gi.test(letter)).join('')
         const swRecipient = secretWordRedeemers[from]
-        db.addSecretWord(secretWord, swRecipient, from).then(() =>
+        db.addSecretWord(secretWord, swRecipient, from).then(() => {
             tmiClient.say(swRecipient, `${from} 's secret word has been set`)
-        )
+            delete secretWordRedeemers[from]
+        })
     }
 }
 
