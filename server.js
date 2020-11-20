@@ -4,6 +4,7 @@ const cookieParser = require('cookie-parser')
 const bodyParser = require('body-parser')
 const { MongoClient } = require('mongodb')
 const utils = require('./serverUtils.js')
+const path = require('path')
 
 require('dotenv').config()
 require('./app.js')
@@ -24,7 +25,15 @@ app.use(bodyParser())
 app.use(cors({ origin: 'http://localhost:3002', credentials: true }))
 
 app.get('/', (req, res) => {
-    res.send("<html><body><h1>bot is running</h1></body></html>")
+    res.sendFile(path.join(__dirname, 'homepage-build', 'index.html'));
+})
+
+app.get('/options', (req, res) => {
+    res.send('<html><body><h1>options page</h1></body></html>')
+})
+
+app.get('/wake', (req, res) => {
+    res.send('<html><body><h1>bot is awake</h1></body></html>')
 })
 
 app.get('/useroptions', cookieParser(), async (req, res) => {
