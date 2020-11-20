@@ -24,6 +24,8 @@ app.use(cookieParser())
 app.use(bodyParser())
 app.use(cors({ origin: 'http://localhost:3002', credentials: true }))
 
+app.use(express.static(path.join(__dirname, 'homepage-build')))
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'homepage-build', 'index.html'));
 })
