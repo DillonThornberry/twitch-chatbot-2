@@ -22,10 +22,10 @@ const app = express()
 
 app.use(cookieParser())
 app.use(bodyParser())
-app.use(cors({ origin: 'http://localhost:3002', credentials: true }))
+app.use(cors({ origin: 'https://robot-ape.herokuapp.com/options', credentials: true }))
 
 app.use(express.static(path.join(__dirname, 'homepage-build')))
-app.use(express.static(path.join(__dirname, 'options-build')))
+// app.use(express.static(path.join(__dirname, 'options-build')))
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'homepage-build', 'index.html'));
