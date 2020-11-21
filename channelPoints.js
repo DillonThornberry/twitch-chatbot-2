@@ -32,7 +32,7 @@ const connect = () => {
             )
             if (redemptionInfo.title === 'Spam a message 10 times in chat') {
                 if (channelPointsUsers[channel].options.spamMessage) {
-                    spamMessage(channel, redemptionInfo.input)
+                    spamMessage(channel, redemptionInfo.input || 'This channel point reward requires text input to work')
                 }
             } else if (redemptionInfo.title === 'Set a secret word') {
                 if (channelPointsUsers[channel].options.secretWord) {

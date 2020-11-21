@@ -50,7 +50,7 @@ const onMessageHandler = (target, context, message, self) => {
     if (/@robot_ape/gi.test(message) && users[target].options.atRobotApe) {
         db.loadChat(target).then(chatlog => {
             const randomIndex = Math.floor(Math.random() * chatlog.length)
-            tmiClient.say(target, `@${context.username} ${chatlog[randomIndex].message}`)
+            tmiClient.say(target, `@${context.username} ${chatlog[randomIndex].message || 'IDK, I\'m a fuckin robot'}`)
         })
     }
 
