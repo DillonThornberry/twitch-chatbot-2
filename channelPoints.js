@@ -6,14 +6,19 @@ var channelPointsUsers = null
 var callbacks = null
 
 const connect = () => {
+    // Start a pubsub WS connection with Twitch
     var ws = new WebSocket('wss://pubsub-edge.twitch.tv')
-    ws.on('open', async () => {
+
+    // Once connected, load in our list of users and find out which ones use channel point rewards
+    ws.on('open', async () => {    
         const users = await db.loadUsers()
         channelPointsUsers = filterChannelPointsUsers(users)
+        
+        // For every channel points user, get an access token, set it in memory, store the new refresh token
+        // in the database, then use the access token to subscribe for channel points rewards
         for (var user in channelPointsUsers) {
             getSetStoreSub(user, channelPointsUsers).then(result => {
-                console.log('result of getSetStoreSub')
-                console.log(result)
+                console.log('getSetStoreSub completed for ' + result.username)
             })
         }
     })
@@ -81,17 +86,13 @@ const connect = () => {
             const tokens = await getTokens(refreshToken, username).catch(e => {
                 return reject(e)
             })
-            if (!tokens.newRefreshToken) {
-                return reject('refresh token failed')
+            if (!tokens || !tokens.newRefreshToken) {
+                return reject('refresh token failed for ' + username)
             } else {
-                console.log('options passed to db.setUserRefreshToken: ')
-                console.log('user: ' + tokens.user)
-                console.log('rf token: ' + tokens.newRefreshToken)
+                console.log('Tokens successfully retrieved for ' + tokens.user)
                 db.setUserRefreshToken(tokens.user, tokens.newRefreshToken)
             }
             usersObj[tokens.user].accessToken = tokens.accessToken
-            console.log('usersObj (from getSetStoreSub)')
-            console.log(usersObj)
             const { accessToken, twitchID } = usersObj[tokens.user]
             subToChannelPoints(twitchID, accessToken)
             resolve({ username, accessToken: tokens.accessToken })
@@ -107,8 +108,7 @@ const connect = () => {
                 'auth_token': accessToken
             }
         }
-        console.log('Options being sent to pub sub:')
-        console.log(opts)
+        console.log(twitchID + ' sent to pubsub')
         ws.send(JSON.stringify(opts))
     }
 
@@ -147,20 +147,15 @@ const filterChannelPointsUsers = users => {
 }
 
 const getTokens = async (refreshToken, user) => {
-    console.log('from getTokens')
-    console.log(user)
     const tokens = new Promise((resolve, reject) => {
         request.post({ url: getTwitchUrl(refreshToken), json: true }, (err, response) => {
-            console.log(user + '------------')
-            console.log(response.body)
-            console.log('-------------')
             const accessToken = response.body.access_token
             const newRefreshToken = response.body.refresh_token
             if (err || !response.body) {
-                return reject('Request failed for refresh => access token')
+                return reject('Request failed for refresh => access token for ' + user)
             }
             if (!accessToken) {
-                return reject('Refresh token was no good')
+                return reject('Refresh token was no good for ' + user)
             }
             resolve({ accessToken, newRefreshToken, user })
         })
