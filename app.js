@@ -34,7 +34,6 @@ const onMessageHandler = (target, context, message, self) => {
             // If they have award points enabled, say the prize and update leaderboard
             if (users[target].options.awardPoints) {
                 tmiClient.say(target, `They both received ${award} points`)
-
             }
             
             // Clear separate word from memory and update database
@@ -48,10 +47,14 @@ const onMessageHandler = (target, context, message, self) => {
     }
 
     if (/@robot_ape/gi.test(message) && users[target].options.atRobotApe) {
-        db.loadChat(target).then(chatlog => {
-            const randomIndex = Math.floor(Math.random() * chatlog.length)
-            tmiClient.say(target, `@${context.username} ${chatlog[randomIndex].message || 'IDK, I\'m a fuckin robot'}`)
-        })
+        if (/link/gi.test(message)){
+            tmiClient.say(target, 'Get me in your chat: https://robot-ape.herokuapp.com')
+        } else {
+            db.loadChat(target).then(chatlog => {
+                const randomIndex = Math.floor(Math.random() * chatlog.length)
+                tmiClient.say(target, `@${context.username} ${chatlog[randomIndex].message || 'IDK, I\'m a fuckin robot'}`)
+            })
+        }
     }
 
     if (message[0] === '!') {
@@ -68,7 +71,7 @@ const onMessageHandler = (target, context, message, self) => {
         }
 
     } else {
-        if (users[target].options.recordChat) {
+        if (users[target].options.recordChat && !['streamelements, nightbot'].includes(context.username)) {
             var chatRecord = { message, username: context.username, date: new Date() }
             db.addMessage(target, chatRecord)
         }
