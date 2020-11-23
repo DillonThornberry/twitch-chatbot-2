@@ -126,7 +126,7 @@ var opts = {
     channels: []
 }
 
-// When trivia is activated, this functions temporary 
+// When trivia is activated, this function temporarily stores chat into an array
 const collectUserChat = async (user, seconds) => {
     temporaryChatCollection[user] = []
     const tempChat = new Promise((resolve, reject) => {
@@ -139,15 +139,21 @@ const collectUserChat = async (user, seconds) => {
     return await tempChat
 }
 
+// Called at the beginning of execution
 const loadUsersAndConnect = async () => {
+
+    // Gets list of users before attempting to connect to tmi
     users = await db.loadUsers()
     opts.channels = Object.keys(users)
 
+    // Sets event handlers and connects 
     tmiClient = new tmi.Client(opts)
     tmiClient.on('message', onMessageHandler)
     tmiClient.on('whisper', onWhisperHandler)
     tmiClient.on('connected', () => console.log('chatbot connected'))
     tmiClient.connect().then(() => {
+        
+        // Start up channelPoints module and commands module and pass down chat related callbacks
         require('./channelPoints.js').setCallbacks({
             awaitSecretWord: awaitSecretWord,
             collectUserChat: collectUserChat,
@@ -161,17 +167,25 @@ const loadUsersAndConnect = async () => {
 
 loadUsersAndConnect()
 
+
+// Every 10 seconds we load in our user settings from the database to look for changes
 setInterval(() => {
     db.loadUsers().then(userList => {
         var oldUserList = { ...users }
         for (var user in userList) {
+            
+            // If a new user has been added, start listening to that user's channel 
             if (!users[user]) {
                 tmiClient.join(user)
             } else {
                 delete oldUserList[user]
             }
+
+            // All user's settings get overwritten with their updated settings (regardless of change)
             users[user] = userList[user]
         }
+
+        // If someone has disconnected their account, leave their channel (tmi) and remove user from memory
         for (var removedUser in oldUserList) {
             tmiClient.part(removedUser)
             delete users[removedUser]
