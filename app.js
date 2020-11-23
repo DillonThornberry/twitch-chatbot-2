@@ -11,7 +11,10 @@ var users = {}
 var temporaryChatCollection = {}
 
 const onMessageHandler = (target, context, message, self) => {
+    // Return if message is from self or another robot_ape instance
     if (self || context.username === 'robot_ape') { return }
+    
+    // Return if we don't recognize the user whose chat we are in
     if (!target || !users[target.slice(1)]) {
         return console.log(`target ${target} not found in users object`)
     }
@@ -36,19 +39,25 @@ const onMessageHandler = (target, context, message, self) => {
                 tmiClient.say(target, `They both received ${award} points`)
             }
             
-            // Clear separate word from memory and update database
+            // Clear secret word from memory and update database
             delete secretWords[word]
             db.updateSecretWords(target, secretWords)
         }
     }
 
+    // If user has a trivia active, push chat into temporary collection to look for submitted answers
     if (temporaryChatCollection[target]) {
         temporaryChatCollection[target].push({ username: context.username, message })
     }
 
+    // If robot ape is @'d and atRobotApe is enabled in that chat
     if (/@robot_ape/gi.test(message) && users[target].options.atRobotApe) {
+        
+        // Reply with a link if word "link" is mentioned 
         if (/link/gi.test(message)){
             tmiClient.say(target, 'Get me in your chat: https://robot-ape.herokuapp.com')
+        
+        // Otherwise respond with random message from target's chat history
         } else {
             db.loadChat(target).then(chatlog => {
                 const randomIndex = Math.floor(Math.random() * chatlog.length)
@@ -57,20 +66,24 @@ const onMessageHandler = (target, context, message, self) => {
         }
     }
 
+    // If message begins with !, parse and call corresponding command
     if (message[0] === '!') {
         const splitMessage = message.split(' ')
         const command = splitMessage[0].slice(1)
         const extra = splitMessage.slice(1)
 
+        // If someone call for trivia while one is active, inform user and return
         if (command === 'trivia' && temporaryChatCollection[target]) {
             return tmiClient.say(target, `@${context.username} there is already a trivia active.`)
         }
 
+        // Command called directly by name with info and user arguments
         if (users[target].options[command] && commands[command]) {
             commands[command](message => tmiClient.say(target, message), { extra, context, target })
         }
 
     } else {
+        // Store chat message if it isn't a command or a bot message
         if (users[target].options.recordChat && !['streamelements, nightbot'].includes(context.username)) {
             var chatRecord = { message, username: context.username, date: new Date() }
             db.addMessage(target, chatRecord)
@@ -83,9 +96,15 @@ var secretWordRedeemers = {}
 const onWhisperHandler = (from, userstate, message, self) => {
     if (self) { return }
     from = from.slice(1)
+
+    // If person who whispered has recently redeemed 'set a secret word'
     if (secretWordRedeemers[from]) {
+
+        // Get first word from message and filter down to alpha characters only
         var secretWord = message.split(' ')[0]
         secretWord = [...secretWord].filter(letter => /[a-z]/gi.test(letter)).join('')
+
+        // Store word in DB, alert in chat, and remove user from secretWordRedemmers
         const swRecipient = secretWordRedeemers[from]
         db.addSecretWord(secretWord, swRecipient, from).then(() => {
             tmiClient.say(swRecipient, `${from} 's secret word has been set`)
@@ -94,6 +113,7 @@ const onWhisperHandler = (from, userstate, message, self) => {
     }
 }
 
+// Callback that channelPoints module uses to add secret word redeemers to list of awaiting whispers
 const awaitSecretWord = (channel, user) => {
     secretWordRedeemers[user] = channel
 }
@@ -106,6 +126,7 @@ var opts = {
     channels: []
 }
 
+// When trivia is activated, this functions temporary 
 const collectUserChat = async (user, seconds) => {
     temporaryChatCollection[user] = []
     const tempChat = new Promise((resolve, reject) => {
