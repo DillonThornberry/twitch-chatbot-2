@@ -30,6 +30,8 @@ const connect = () => {
             return connect()
         }
         message = JSON.parse(message)
+
+        // If channel point redemption comes in, parse information and locate user with corresponding Twitch ID
         if (message.type === 'MESSAGE' && message.data.topic.startsWith('channel-points')) {
             const redemptionInfo = parseRedemptionInfo(JSON.parse(message.data.message).data.redemption)
             const channel = Object.keys(channelPointsUsers).find(user =>
@@ -48,6 +50,7 @@ const connect = () => {
         }
     })
 
+    // WS server must be pinged at least every 5 minutes to maintain connection
     const pingInterval = setInterval(() => {
         if (ws.readyState != 1) {
             console.log('socket closed')
@@ -58,12 +61,16 @@ const connect = () => {
         }))
     }, 120000)
 
+    // Every 10 seconds we check for updated user settings from DB
     const updateInterval = setInterval(async () => {
         if (ws.readyState != 1) {
             return clearInterval(updateInterval)
         }
         const newUsers = await db.loadUsers()
         const newChannelPointsUsers = filterChannelPointsUsers(newUsers)
+
+        // If we find a user who is new or who recently added channel point rewards, get their access token
+        // and subscribe for their channel points
         for (var user in newChannelPointsUsers) {
             if (!channelPointsUsers[user]) {
                 console.log('new channel points user')
@@ -71,6 +78,7 @@ const connect = () => {
                     newChannelPointsUsers[result.username].accessToken = result.accessToken
                     channelPointsUsers[result.username] = newChannelPointsUsers[result.username]
                 })
+            // Otherwise just update their settings
             } else {
                 channelPointsUsers[user] = newChannelPointsUsers[user]
             }
@@ -79,6 +87,8 @@ const connect = () => {
 
     const getSetStoreSub = async (username, usersObj) => {
         const updatedUser = new Promise(async (resolve, reject) => {
+
+            // Use refresh token in user object to get new tokens
             const refreshToken = usersObj[username].refreshToken
             if (!refreshToken) {
                 return reject('no refresh token for ' + username)
@@ -86,6 +96,8 @@ const connect = () => {
             const tokens = await getTokens(refreshToken, username).catch(e => {
                 return reject(e)
             })
+
+            // If tokens successfully retrieved, store new refresh token in DB
             if (!tokens || !tokens.newRefreshToken) {
                 return reject('refresh token failed for ' + username)
             } else {
@@ -94,7 +106,11 @@ const connect = () => {
             }
             usersObj[tokens.user].accessToken = tokens.accessToken
             const { accessToken, twitchID } = usersObj[tokens.user]
+
+            // Sub to channel points with newly acquired access token
             subToChannelPoints(twitchID, accessToken)
+
+            // returned value just proves action was completed
             resolve({ username, accessToken: tokens.accessToken })
         })
         return await updatedUser
@@ -129,6 +145,7 @@ const parseRedemptionInfo = redemptionInfo => {
     }
 }
 
+// Filters users down to those who have channel point rewards enabled and creates channelPointsUser object
 const filterChannelPointsUsers = users => {
     const channelPointsUsers = {}
     for (var user in users) {
