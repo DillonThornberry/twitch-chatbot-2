@@ -13,6 +13,7 @@ var temporaryChatCollection = {}
 const onMessageHandler = (target, context, message, self) => {
     // Return if message is from self or another robot_ape instance
     if (self || context.username === 'robot_ape') { return }
+    if (['streamelements', 'nightbot'].includes(context.username)) { return }
     
     // Return if we don't recognize the user whose chat we are in
     if (!target || !users[target.slice(1)]) {
