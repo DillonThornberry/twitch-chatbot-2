@@ -86,6 +86,7 @@ const onMessageHandler = (target, context, message, self) => {
     if (message[0] === '!') {
         const splitMessage = message.split(' ')
         const command = splitMessage[0].slice(1)
+        console.log('command: ' + command)
         const extra = splitMessage.slice(1)
 
         // If someone call for trivia while one is active, inform user and return
@@ -94,7 +95,7 @@ const onMessageHandler = (target, context, message, self) => {
         }
 
         // Command called directly by name with info and user arguments
-        if (users[target].options[command] && commands[command]) {
+        if (command == 'rank' || (users[target].options[command] && commands[command])) {
             commands[command](message => tmiClient.say(target, message), { extra, context, target })
         }
 

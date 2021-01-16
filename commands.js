@@ -22,6 +22,19 @@ const history = (callback, info) => {
     })
 }
 
+const rank = (callback, info) => {
+    console.log(info.context.username)
+    db.loadUsers().then(users => {
+        var leaderboard = users[info.target].leaderboard
+        for (var i=0; i < leaderboard.length; i++){
+            if (leaderboard[i].user === info.context.username){
+                return callback(`@${info.context.username} you are currently ranked #${i+1} with ${leaderboard[i].score} points`)
+            }
+        }
+        return callback(`@${info.context.username} you are not on the secret word leaderboard yet`)
+    })
+}
+
 const trivia = (callback, info) => {
     request({ url: 'https://opentdb.com/api.php?amount=1&difficulty=easy&type=multiple', json: true }, (err, res) => {
         
@@ -67,6 +80,7 @@ const trivia = (callback, info) => {
 
 module.exports = {
     history,
+    rank,
     setCallbacks,
     trivia,
 }

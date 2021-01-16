@@ -63,6 +63,7 @@ class Person {
         this.refreshToken = refreshToken
         this.options = defaultOptions
         this.secretWords = {}
+        this.leaderboard = []
     }
 }
 
