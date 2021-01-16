@@ -35,10 +35,25 @@ const onMessageHandler = (target, context, message, self) => {
             var diffInMs = new Date() - secretWords[word].date
             const award = 5 * Math.pow(10, Math.floor(diffInMs.toString().length / 2))
 
-            // If they have award points enabled, say the prize and update leaderboard
-            if (users[target].options.awardPoints) {
-                tmiClient.say(target, `They both received ${award} points`)
+            // Say the prize and update leaderboard
+            tmiClient.say(target, `They both received ${award} points`)
+            var currentLeaderboard = users[target].leaderboard
+            for (var winner of [secretWords[word].user, context.username]){
+                var foundInLeaderboard = false
+                for (var submission of currentLeaderboard){
+                    if (submission.user === winner){
+                        submission.score += award
+                        foundInLeaderboard = true
+                        break
+                    }
+                }
+                if (!foundInLeaderboard){
+                    currentLeaderboard.push({user: winner, score: award})
+                }
             }
+            currentLeaderboard = currentLeaderboard.sort((a,b) => a.score > b.score ? -1 : 1)
+            db.updateLeaderboard(target, currentLeaderboard)
+            
             
             // Clear secret word from memory and update database
             delete secretWords[word]
@@ -146,7 +161,7 @@ const loadUsersAndConnect = async () => {
     // Gets list of users before attempting to connect to tmi
     users = await db.loadUsers()
     opts.channels = Object.keys(users)
-
+    
     // Sets event handlers and connects 
     tmiClient = new tmi.Client(opts)
     tmiClient.on('message', onMessageHandler)

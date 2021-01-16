@@ -44,7 +44,8 @@ const loadUsers = async () => {
     await userColl.find({}).forEach(user => {
         users[user.twitchDetails.login] = {
             options: user.options, refreshToken: user.refreshToken,
-            twitchID: user.twitchID, secretWords: user.secretWords
+            twitchID: user.twitchID, secretWords: user.secretWords,
+            leaderboard: user.leaderboard || []
         }
     })
     return users
@@ -70,11 +71,18 @@ const updateSecretWords = async (target, secretWords) => {
     ).then(result => null /* console.log(result) */)
 }
 
+const updateLeaderboard = (target, currentLeaderboard) => {
+    userColl.updateOne(
+        { 'twitchDetails.login': target},
+        { $set: { leaderboard: currentLeaderboard } }
+    )
+}
 module.exports = {
     addMessage,
     addSecretWord,
     loadChat,
     loadUsers,
     setUserRefreshToken,
+    updateLeaderboard,
     updateSecretWords,
 }
