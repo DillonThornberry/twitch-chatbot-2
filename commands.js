@@ -29,7 +29,7 @@ const leaderboard = (callback, info) => {
         var lbMessage = ''
         for (var i=0; i < 5; i++){
             if (leaderboard[i]){
-                lbMessage += `${i+1}. ${leaderboard[i].user} - ${leaderboard[i].score}\n`
+                lbMessage += `${i+1}. ${leaderboard[i].user} - ${leaderboard[i].score} // `
             }
         }
         return callback(lbMessage)
