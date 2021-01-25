@@ -29,7 +29,7 @@ const leaderboard = (callback, info) => {
         var lbMessage = 'Secret word leaderboard '
         for (var i=0; i < 5; i++){
             if (leaderboard[i]){
-                lbMessage += `// ${i+1}. ${leaderboard[i].user} - ${leaderboard[i].score}`
+                lbMessage += ` // ${i+1}. ${leaderboard[i].user} - ${leaderboard[i].score}`
             }
         }
         return callback(lbMessage)
