@@ -95,7 +95,7 @@ const onMessageHandler = (target, context, message, self) => {
         }
 
         // Command called directly by name with info and user arguments
-        if (command == 'rank' || (users[target].options[command] && commands[command])) {
+        if (command == 'rank' || command == 'leaderboard' || (users[target].options[command] && commands[command])) {
             commands[command](message => tmiClient.say(target, message), { extra, context, target })
         }
 
