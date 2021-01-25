@@ -26,10 +26,10 @@ const leaderboard = (callback, info) => {
     console.log(info.context.username)
     db.loadUsers().then(users => {
         var leaderboard = users[info.target].leaderboard
-        var lbMessage = ''
+        var lbMessage = 'Secret word leaderboard '
         for (var i=0; i < 5; i++){
             if (leaderboard[i]){
-                lbMessage += `${i+1}. ${leaderboard[i].user} - ${leaderboard[i].score} // `
+                lbMessage += `// ${i+1}. ${leaderboard[i].user} - ${leaderboard[i].score}`
             }
         }
         return callback(lbMessage)
