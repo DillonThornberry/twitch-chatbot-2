@@ -22,6 +22,20 @@ const history = (callback, info) => {
     })
 }
 
+const leaderboard = (callback, info) => {
+    console.log(info.context.username)
+    db.loadUsers().then(users => {
+        var leaderboard = users[info.target].leaderboard
+        var lbMessage = ''
+        for (var i=0; i < 5; i++){
+            if (leaderboard[i]){
+                lbMessage += `${i+1}. ${leaderboard[i].user} - ${leaderboard[i].score}\n`
+            }
+        }
+        return callback(lbMessage)
+    })
+}
+
 const rank = (callback, info) => {
     console.log(info.context.username)
     db.loadUsers().then(users => {
@@ -80,6 +94,7 @@ const trivia = (callback, info) => {
 
 module.exports = {
     history,
+    leaderboard,
     rank,
     setCallbacks,
     trivia,
