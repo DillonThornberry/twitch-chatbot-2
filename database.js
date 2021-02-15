@@ -45,7 +45,8 @@ const loadUsers = async () => {
         users[user.twitchDetails.login] = {
             options: user.options, refreshToken: user.refreshToken,
             twitchID: user.twitchID, secretWords: user.secretWords,
-            leaderboard: user.leaderboard || []
+            leaderboard: user.leaderboard || [],
+            triviaStats: user.triviaStats || {}
         }
     })
     return users
@@ -77,6 +78,14 @@ const updateLeaderboard = (target, currentLeaderboard) => {
         { $set: { leaderboard: currentLeaderboard } }
     )
 }
+
+const updateTriviaStats = (target, currentStats) => {
+    userColl.updateOne(
+        { 'twitchDetails.login': target},
+        { $set: { triviaStats: currentStats } }
+    )
+}
+
 module.exports = {
     addMessage,
     addSecretWord,
@@ -85,4 +94,5 @@ module.exports = {
     setUserRefreshToken,
     updateLeaderboard,
     updateSecretWords,
+    updateTriviaStats
 }

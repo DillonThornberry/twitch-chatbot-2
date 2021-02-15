@@ -36,6 +36,32 @@ const leaderboard = (callback, info) => {
     })
 }
 
+const triviastats = (callback, info) => {
+    db.loadUsers().then(users => {
+        var statMessage = ""
+        var triviaStats = users[info.target].triviaStats
+        var thisUser = triviaStats[info.context.username]
+        var triviaLeaderboard = utils.rankTrivia(triviaStats)
+    
+        if (thisUser){
+            var userRank = null
+            for (var i=0; i<triviaLeaderboard.length; i++){
+                if (triviaLeaderboard[i].user == info.context.username){
+                    userRank = i + 1
+                }
+            }
+            statMessage += `@${info.context.username}, you have answered ${thisUser.correct}/${thisUser.attempts} 
+            (${Math.floor((thisUser.correct / thisUser.attempts) * 100)}%) correctly. You are ranked #${userRank} of ${triviaLeaderboard.length}
+            with a score of ${triviaLeaderboard[userRank-1].score}. `
+
+            statMessage += `-- Top 3: ${triviaLeaderboard.slice(0, 3).map(player => player.user + ' ('  + player.score + ')').join(' // ')}`
+            console.log(triviaLeaderboard)
+            // .map(player => player.user + ': ' + player.score).join(', ')
+        }
+        callback(statMessage)
+    })
+}
+
 const rank = (callback, info) => {
     console.log(info.context.username)
     db.loadUsers().then(users => {
@@ -77,10 +103,40 @@ const trivia = (callback, info) => {
                     votes[result.username] = result.message
                 }
             }
+        
             const winners = Object.keys(votes).filter(voter => votes[voter] === (correctIndex + 1).toString())
             callback(`/me The correct answer was ${choices[correctIndex]}. ${winners.length ?
                 winners.join(', ') : 'Nobody'} was correct`)
+            
+            var results = {}
+            for (var voter of Object.keys(votes)){
+                if (winners.includes(voter)){
+                    results[voter] = true
+                } else {
+                    results[voter] = false
+                }
+            }
 
+            //console.log(results)
+
+            db.loadUsers().then(users => {
+                triviaStats = users[info.target].triviaStats ? users[info.target].triviaStats : {}
+                //console.log('trivia stats from db: ' + JSON.stringify(triviaStats))
+                for (var triviaPlayer of Object.keys(results)){
+                    if (!triviaStats[triviaPlayer]){
+                        triviaStats[triviaPlayer] = {}
+                        triviaStats[triviaPlayer].attempts = 1
+                        triviaStats[triviaPlayer].correct = 0
+                    } else {
+                        triviaStats[triviaPlayer].attempts ++
+                    }
+
+                    if (results[triviaPlayer]){
+                        triviaStats[triviaPlayer].correct ++
+                    }
+                }
+                db.updateTriviaStats(info.target, triviaStats)
+            })
             // Check DB to see if they have awardPoints enabled and award points if so
             // *** It would be more efficient to get this info from app.js instead of the DB ***
             db.loadUsers().then(users => {
@@ -92,10 +148,13 @@ const trivia = (callback, info) => {
     })
 }
 
+
+
 module.exports = {
     history,
     leaderboard,
     rank,
     setCallbacks,
     trivia,
+    triviastats
 }
