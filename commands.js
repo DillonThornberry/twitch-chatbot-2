@@ -58,7 +58,7 @@ const triviastats = (callback, info) => {
             //console.log(triviaLeaderboard)
             // .map(player => player.user + ': ' + player.score).join(', ')
         }
-        callback(statMessage.length ? statMessage || 'You have no trivia history, do !trivia to start playing!')
+        callback(statMessage.length ? statMessage : 'You have no trivia history, do !trivia to start playing!')
     })
 }
 
