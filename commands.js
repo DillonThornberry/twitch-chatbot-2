@@ -55,10 +55,10 @@ const triviastats = (callback, info) => {
             with a score of ${triviaLeaderboard[userRank-1].score}. `
 
             statMessage += `-- Top 3: ${triviaLeaderboard.slice(0, 3).map(player => player.user + ' ('  + player.score + ')').join(' // ')}`
-            console.log(triviaLeaderboard)
+            //console.log(triviaLeaderboard)
             // .map(player => player.user + ': ' + player.score).join(', ')
         }
-        callback(statMessage)
+        callback(statMessage.length ? statMessage || 'You have no trivia history, do !trivia to start playing!')
     })
 }
 
